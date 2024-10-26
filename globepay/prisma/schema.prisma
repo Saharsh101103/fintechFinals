@@ -1,74 +1,60 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // Make sure to set this environment variable
+}
 
 generator client {
-    provider = "prisma-client-js"
-}
-
-datasource db {
-    provider = "postgresql"
-    // NOTE: When using mysql or sqlserver, uncomment the @db.Text annotations in model Account below
-    // Further reading:
-    // https://next-auth.js.org/adapters/prisma#create-the-prisma-schema
-    // https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
-    url      = env("DATABASE_URL")
-}
-
-model Post {
-    id        Int      @id @default(autoincrement())
-    name      String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    createdBy   User   @relation(fields: [createdById], references: [id])
-    createdById String
-
-    @@index([name])
-}
-
-// Necessary for Next auth
-model Account {
-    id                       String  @id @default(cuid())
-    userId                   String
-    type                     String
-    provider                 String
-    providerAccountId        String
-    refresh_token            String? // @db.Text
-    access_token             String? // @db.Text
-    expires_at               Int?
-    token_type               String?
-    scope                    String?
-    id_token                 String? // @db.Text
-    session_state            String?
-    user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    refresh_token_expires_in Int?
-
-    @@unique([provider, providerAccountId])
-}
-
-model Session {
-    id           String   @id @default(cuid())
-    sessionToken String   @unique
-    userId       String
-    expires      DateTime
-    user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider = "prisma-client-js"
 }
 
 model User {
-    id            String    @id @default(cuid())
-    name          String?
-    email         String?   @unique
-    emailVerified DateTime?
-    image         String?
-    accounts      Account[]
-    sessions      Session[]
-    posts         Post[]
+  id              Int              @id @default(autoincrement())
+  name            String
+  email           String           @unique
+  phone           String           @unique
+  kycDetails      String           // Summary or details about KYC
+  kycStatus       String           // KYC verification status@\
+  kycDocument     String?          // Path or reference to KYC document
+  bankingInfo     String
+  transactions    Transaction[]    @relation("SenderTransactions")
+  receivedTransactions Transaction[] @relation("RecipientTransactions")
+  tokens          Token[]
+  invoices        Invoice[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
-model VerificationToken {
-    identifier String
-    token      String   @unique
-    expires    DateTime
+model Transaction {
+  id              Int              @id @default(autoincrement())
+  senderId        Int
+  recipientId     Int
+  amount          Float
+  status          String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sender          User             @relation("SenderTransactions", fields: [senderId], references: [id])
+  recipient       User             @relation("RecipientTransactions", fields: [recipientId], references: [id])
+  tokens          Token[]
+}
 
-    @@unique([identifier, token])
+model Token {
+  id              Int              @id @default(autoincrement())
+  amount          Float
+  transactionReference Int         // Reference to the associated transaction
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation(fields: [userId], references: [id])
+  userId          Int              // User who owns this token
+  transaction     Transaction      @relation(fields: [transactionReference], references: [id])
+}
+
+model Invoice {
+  id              Int              @id @default(autoincrement())
+  uniqueId        String           @unique
+  amount          Float
+  status          String
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User?            @relation(fields: [userId], references: [id])
+  userId          Int?
 }
